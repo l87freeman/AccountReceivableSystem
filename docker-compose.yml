@@ -1,0 +1,66 @@
+version: '3.8'
+services:
+  mongodb:
+    image: mongo
+    restart: always
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - 27017:27017
+    networks:
+      - account-receivable-system
+
+  identity:
+    build:
+      context: ./identityServer
+      dockerfile: ./IdentityServer.Web/Dockerfile
+    image: identity-app:1.0
+    environment:
+      - MongoDb__ConnectionString=mongodb://mongodb:27017
+    ports:
+      - '8085:80'
+    depends_on:
+      - mongodb
+    networks:
+      - account-receivable-system
+
+  account-receivable-system-app:
+    build:
+      context: ./server
+      dockerfile: ./AccountReceivableSystem.Web/Dockerfile
+    image: account-receivable-system-app:1.0
+    environment:
+      - MongoDb__ConnectionString=mongodb://mongodb:27017
+    ports:
+      - '8086:80'
+    depends_on:
+      - mongodb
+    networks:
+      - account-receivable-system
+
+  client-app:
+    build:
+      context: ./client
+      dockerfile: ./Dockerfile
+    image: client-app:1.0
+    environment:
+      - REACT_APP_APP_NAME='Account Receivable System'
+      - REACT_APP_API_URL=http://account-receivable-system-app:8086
+      - REACT_APP_IDENTITY_URL=http://identity:8085
+    ports:
+      - '8087:80'
+    depends_on:
+      - account-receivable-system-app
+      - identity
+    networks:
+      - account-receivable-system
+    volumes:
+      - './client/src:/app/src'
+      - '/app/node_modules'
+
+networks:
+  account-receivable-system:
+    driver: bridge
+
+volumes:
+  mongodb_data:
